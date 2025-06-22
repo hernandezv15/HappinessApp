@@ -106,7 +106,7 @@ if submitted:
         df_imputed['Preference Score'] = score
         top_countries = df_imputed.sort_values("Preference Score", ascending=False).head(3)
 
-        st.subheader("🌟 Recommended Countries for You")
+ st.subheader("🌟 Recommended Countries for You")
         st.dataframe(top_countries[['Country', 'Preference Score'] + selected_indicators])
 
         st.markdown("### Why These Countries?")
@@ -114,20 +114,23 @@ if submitted:
             reasons = ", ".join([f"{col}: {row[col]:.2f}" for col in selected_indicators])
             st.markdown(f"- **{row['Country']}** → {reasons}")
 
-        st.subheader("📊 PCA Projection")
-        pca = PCA(n_components=2)
-        X_pca = pca.fit_transform(X)
-        kmeans = KMeans(n_clusters=3, random_state=42)
-        labels = kmeans.fit_predict(X)
-        df_proj = pd.DataFrame(X_pca, columns=['PC1', 'PC2'])
-        df_proj['Country'] = df_imputed['Country']
-        df_proj['Cluster'] = labels
-        fig, ax = plt.subplots()
-        sns.scatterplot(data=df_proj, x='PC1', y='PC2', hue='Cluster', style='Country', palette='Set2', ax=ax)
-        st.pyplot(fig)
+        st.subheader("🗺️ Country Locations on Map")
+        try:
+            map_df = pd.DataFrame()
+            map_df['Country'] = df_imputed['Country']
+            map_df['Score'] = df_imputed['Preference Score']
+            map_df = map_df.merge(
+                pd.DataFrame({
+                    'Country': [country.name for country in pycountry.countries],
+                    'ISO_A3': [country.alpha_3 for country in pycountry.countries]
+                }), on='Country', how='left')
+            st.map(map_df.rename(columns={"lat": "latitude", "lon": "longitude"}))
+        except:
+            st.warning("Map display unavailable due to missing coordinates.")
 
         st.subheader("📌 Cluster Averages for Selected Indicators")
-        df_imputed['Cluster'] = labels
+        kmeans = KMeans(n_clusters=3, random_state=42)
+        df_imputed['Cluster'] = kmeans.fit_predict(X)
         st.dataframe(df_imputed.groupby('Cluster')[selected_indicators].mean().T.style.highlight_max(axis=1))
     else:
         st.info("Please rate at least one category to get recommendations.")
