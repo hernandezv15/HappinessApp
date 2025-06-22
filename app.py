@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 @st.cache_data
 
 def load_data():
-    df = pd.read_csv("OECD data") 
+    df = pd.read_csv("OECD data")
     df = df.dropna(subset=["OBS_VALUE"])[["Reference area", "Measure", "OBS_VALUE"]]
     df.columns = ["Country", "Indicator", "Value"]
     df_wide = df.pivot_table(index="Country", columns="Indicator", values="Value", aggfunc="mean").reset_index()
@@ -44,13 +44,14 @@ features_scaled = scaler.fit_transform(features)
 df_scaled = pd.DataFrame(features_scaled, columns=features.columns, index=features.index)
 df_scaled['Country'] = df_imputed['Country']
 
-# Broad categories for indicators
+# Group indicators by broad categories
 indicator_categories = {
-    "Accessibility": ["Access to green spaces", "Access to services", "Affordable housing"],
-    "Safety and Belonging": ["Feeling safe at night", "Feeling lonely", "Trust in others"],
-    "Economic Stability": ["Employment rate", "Household net adjusted disposable income", "Gender wage gap"],
-    "Environmental Quality": ["Air pollution PM2.5 exposure", "Urban population exposure to air pollution", "Waste recycling rate"],
-    "Overall Well-being": ["Life satisfaction", "Work-life balance", "Mental health issues"]
+    "Overall Well-being": ["Life expectancy at birth", "Perceived health as positive", "Negative affect balance"],
+    "Civic Engagement & Education": ["Voter turnout", "Having a say in government", "Adult literacy skills", "Students with low skills in reading, mathematics and science"],
+    "Environmental Quality": ["Exposed to air pollution", "Exposure to extreme temperature"],
+    "Economic Stability": ["Employment rate", "Households and NPISHs net adjusted disposable income per capita", "Gender wage gap"],
+    "Accessibility": ["Housing affordability", "Households living in overcrowded conditions", "Households with internet access at home"],
+    "Safety and Belonging": ["Social support", "Satisfaction with personal relationships", "Feeling lonely", "Feeling safe at night"]
 }
 
 ratings = {}
@@ -58,9 +59,10 @@ with st.form("priority_form"):
     st.subheader("📋 Rate What's Important to You (1 = Least, 5 = Most)")
     for category, indicators in indicator_categories.items():
         st.markdown(f"**{category}**")
-        for ind in indicators:
-            if ind in df_scaled.columns:
-                ratings[ind] = st.slider(ind, 1, 5, 3)
+        for indicator in indicators:
+            if indicator in df_scaled.columns:
+                label = f"Importance of high {indicator.lower()}"
+                ratings[indicator] = st.slider(label, 1, 5, 3)
 
     submitted = st.form_submit_button("Show Recommendations")
 
