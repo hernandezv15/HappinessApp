@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 @st.cache_data
 
 def load_data():
-    df = pd.read_csv(r"c:\Users\torih\Downloads\OECD.WISE.WDP,DSD_HSL@DF_HSL_CWB,1.1+.2_9+6_3_DEP+6_5+7_1+7_4+10_1+8_1+5_2+10_2+9_1+7_3+3_4+2_4+11_2+11_1+9_3+9_2+8_2+5_3+5_1+3_2+3_1+2_2+2_1+1_3+1_1.._T._T._T..csv", encoding='utf-8')
+    df = pd.read_csv("OECD data", encoding='utf-8')
     df = df.dropna(subset=["OBS_VALUE"])[["Reference area", "Measure", "OBS_VALUE"]]
     df.columns = ["Country", "Indicator", "Value"]
     df_wide = df.pivot_table(index="Country", columns="Indicator", values="Value", aggfunc="mean").reset_index()
