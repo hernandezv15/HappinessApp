@@ -25,8 +25,8 @@ def load_data():
 
 
 def prepare_data(df):
-    df_cleaned = df.loc[:, df.isnull().mean() < 0.2]
-    df_cleaned = df_cleaned[df_cleaned.isnull().mean(axis=1) < 0.3]
+    df_cleaned = df.loc[:, df.isnull().mean() < 0.7]
+    df_cleaned = df_cleaned[df_cleaned.isnull().mean(axis=1) < 0.7]
     imputer = KNNImputer(n_neighbors=5)
     df_numeric = df_cleaned.select_dtypes(include='number')
     df_imputed = pd.DataFrame(imputer.fit_transform(df_numeric), columns=df_numeric.columns, index=df_cleaned.index)
