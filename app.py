@@ -7,7 +7,7 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+import pycountry
 # Load data
 @st.cache_data
 
