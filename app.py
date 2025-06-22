@@ -8,6 +8,7 @@ from sklearn.cluster import KMeans
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pycountry
+import plotly.express as px
 
 # Load data
 @st.cache_data
@@ -70,8 +71,8 @@ st.title("🌍 Country Recommendation Based on Your Priorities")
 st.markdown("Rate what's important to you in each category. We’ll recommend countries that perform well in those areas.")
 
 # Load and prep
-raw = load_data()
-df_imputed = prepare_data(raw)
+df_raw = load_data()
+df_imputed = prepare_data(df_raw)
 features = df_imputed.drop(columns=['Country'])
 scaler = StandardScaler()
 features_scaled = scaler.fit_transform(features)
@@ -85,7 +86,6 @@ with st.form("priority_form"):
     for category, indicators in indicator_categories.items():
         st.markdown(f"**{category}**")
         ratings[category] = st.slider(f"Importance of {category.lower()}", 1, 5, 3)
-
     submitted = st.form_submit_button("Show Recommendations")
 
 if submitted:
@@ -134,5 +134,20 @@ if submitted:
             st.markdown("**Summary:**")
             st.write(", ".join(summary))
             st.markdown("---")
+
+        # Regional interactive map
+        st.subheader("🗺️ Click a Country on the Map to View Category Grades")
+
+        df_imputed['ISO3'] = df_imputed['Country'].apply(lambda x: pycountry.countries.lookup(x).alpha_3 if pycountry.countries.get(name=x) else None)
+        df_viz = df_imputed.dropna(subset=['ISO3'])
+        fig = px.choropleth(
+            df_viz,
+            locations="ISO3",
+            color="Preference Score",
+            hover_name="Country",
+            color_continuous_scale="YlGnBu",
+            title="Preference Scores by Country",
+        )
+        st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Please rate at least one category to get recommendations.")
