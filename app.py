@@ -3,10 +3,8 @@ import pandas as pd
 import numpy as np
 from sklearn.impute import KNNImputer
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -14,7 +12,7 @@ import matplotlib.pyplot as plt
 @st.cache_data
 
 def load_data():
-    df = pd.read_csv("OECD data", encoding='utf-8')
+    df = pd.read_csv("OECD data") 
     df = df.dropna(subset=["OBS_VALUE"])[["Reference area", "Measure", "OBS_VALUE"]]
     df.columns = ["Country", "Indicator", "Value"]
     df_wide = df.pivot_table(index="Country", columns="Indicator", values="Value", aggfunc="mean").reset_index()
@@ -23,10 +21,9 @@ def load_data():
 # Impute and standardize
 @st.cache_data
 
-
 def prepare_data(df):
-    df_cleaned = df.loc[:, df.isnull().mean() < 0.7]
-    df_cleaned = df_cleaned[df_cleaned.isnull().mean(axis=1) < 0.7]
+    df_cleaned = df.loc[:, df.isnull().mean() < 0.7]  # Keep more columns
+    df_cleaned = df_cleaned[df_cleaned.isnull().mean(axis=1) < 0.7]  # Keep more rows
     imputer = KNNImputer(n_neighbors=5)
     df_numeric = df_cleaned.select_dtypes(include='number')
     df_imputed = pd.DataFrame(imputer.fit_transform(df_numeric), columns=df_numeric.columns, index=df_cleaned.index)
@@ -47,20 +44,20 @@ features_scaled = scaler.fit_transform(features)
 df_scaled = pd.DataFrame(features_scaled, columns=features.columns, index=features.index)
 df_scaled['Country'] = df_imputed['Country']
 
-# Organize indicators by category
+# Broad categories for indicators
 indicator_categories = {
-    "Social": ["Feeling lonely", "Feeling safe at night", "Life satisfaction"],
-    "Economic": ["Employment rate", "Household net adjusted disposable income", "Gender wage gap"],
-    "Environmental": ["Air pollution PM2.5 exposure", "Access to green spaces", "Urban population exposure to air pollution", "Waste recycling rate"],
-    "Health": ["Life expectancy", "Mental health issues"],
-    "Education": ["Educational attainment", "Adult skills"]
+    "Accessibility": ["Access to green spaces", "Access to services", "Affordable housing"],
+    "Safety and Belonging": ["Feeling safe at night", "Feeling lonely", "Trust in others"],
+    "Economic Stability": ["Employment rate", "Household net adjusted disposable income", "Gender wage gap"],
+    "Environmental Quality": ["Air pollution PM2.5 exposure", "Urban population exposure to air pollution", "Waste recycling rate"],
+    "Overall Well-being": ["Life satisfaction", "Work-life balance", "Mental health issues"]
 }
 
 ratings = {}
 with st.form("priority_form"):
     st.subheader("📋 Rate What's Important to You (1 = Least, 5 = Most)")
     for category, indicators in indicator_categories.items():
-        st.markdown(f"**{category} Indicators**")
+        st.markdown(f"**{category}**")
         for ind in indicators:
             if ind in df_scaled.columns:
                 ratings[ind] = st.slider(ind, 1, 5, 3)
