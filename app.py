@@ -23,6 +23,7 @@ def load_data():
 # Impute and standardize
 @st.cache_data
 
+
 def prepare_data(df):
     df_cleaned = df.loc[:, df.isnull().mean() < 0.4]
     df_cleaned = df_cleaned[df_cleaned.isnull().mean(axis=1) < 0.5]
@@ -33,68 +34,65 @@ def prepare_data(df):
     return df_imputed
 
 # Page setup
-st.title("Country Clustering and Recommendation Tool")
+st.title("🌍 Country Recommendation Based on Your Priorities")
+st.markdown("Use the **sidebar sliders** to rate the importance of different well-being indicators. We'll recommend the best-matching countries for you!")
 
 # Load and prep
 raw = load_data()
 df_imputed = prepare_data(raw)
 features = df_imputed.drop(columns=['Country'])
 scaler = StandardScaler()
-X_scaled = scaler.fit_transform(features)
+features_scaled = scaler.fit_transform(features)
+df_scaled = pd.DataFrame(features_scaled, columns=features.columns, index=features.index)
+df_scaled['Country'] = df_imputed['Country']
 
-# Regression
-if 'Life satisfaction' in features.columns:
-    y = features['Life satisfaction']
-    X_reg = features.drop(columns='Life satisfaction')
-    reg = LinearRegression().fit(X_reg, y)
-    coeffs = pd.Series(reg.coef_, index=X_reg.columns)
-else:
-    reg = None
-    X_reg = features
-    coeffs = pd.Series([0]*features.shape[1], index=features.columns)
+# Define key indicators for user rating
+key_indicators = [
+    "Feeling safe at night",
+    "Employment rate",
+    "Household net adjusted disposable income",
+    "Feeling lonely",
+    "Gender wage gap",
+    "Life satisfaction"
+]
 
-# Top features selection
-st.sidebar.header("Pick Top 3 Important Indicators")
-all_feats = coeffs.abs().sort_values(ascending=False).index.tolist()
-selected_feats = st.sidebar.multiselect("Choose 3 indicators:", all_feats, default=all_feats[:3])
+st.sidebar.header("Rate What's Important to You (1 = Least, 5 = Most)")
+ratings = {}
+for ind in key_indicators:
+    if ind in df_scaled.columns:
+        ratings[ind] = st.sidebar.slider(ind, 1, 5, 3)
 
-if len(selected_feats) == 3:
-    X_top = X_reg[selected_feats]
-    X_top_scaled = StandardScaler().fit_transform(X_top)
+selected_indicators = [k for k, v in ratings.items() if v > 0]
+weights = np.array([ratings[k] for k in selected_indicators])
 
-    # KMeans
-    kmeans = KMeans(n_clusters=3, random_state=42)
-    labels = kmeans.fit_predict(X_top_scaled)
-    df_imputed['Cluster'] = labels
+if len(selected_indicators) >= 1:
+    X = df_scaled[selected_indicators]
+    score = X @ weights
+    df_imputed['Preference Score'] = score
+    top_countries = df_imputed.sort_values("Preference Score", ascending=False).head(3)
 
-    # Recommendation: find closest 3 to cluster centers
-    distances = kmeans.transform(X_top_scaled)
-    closest_idx = np.argsort(distances.min(axis=1))[:3]
-    recommended = df_imputed.iloc[closest_idx][['Country'] + selected_feats + ['Cluster']]
-
-    st.subheader("Recommended Countries Based on Selected Indicators")
-    st.dataframe(recommended)
+    st.subheader("🌟 Recommended Countries for You")
+    st.dataframe(top_countries[['Country', 'Preference Score'] + selected_indicators])
 
     st.markdown("### Why These Countries?")
-    for _, row in recommended.iterrows():
-        summary = f"- **{row['Country']}**: " + \
-                  ", ".join([f"{feat} = {row[feat]:.2f}" for feat in selected_feats]) + \
-                  f" (Cluster {int(row['Cluster'])})"
-        st.markdown(summary)
+    for _, row in top_countries.iterrows():
+        reasons = ", ".join([f"{col}: {row[col]:.2f}" for col in selected_indicators])
+        st.markdown(f"- **{row['Country']}** → {reasons}")
 
-    # Visualizations
-    st.subheader("PCA Projection")
+    st.subheader("📊 PCA Projection")
     pca = PCA(n_components=2)
-    X_pca = pca.fit_transform(X_top_scaled)
-    pca_df = pd.DataFrame(X_pca, columns=['PC1', 'PC2'])
-    pca_df['Cluster'] = labels
-    pca_df['Country'] = df_imputed['Country']
+    X_pca = pca.fit_transform(X)
+    kmeans = KMeans(n_clusters=3, random_state=42)
+    labels = kmeans.fit_predict(X)
+    df_proj = pd.DataFrame(X_pca, columns=['PC1', 'PC2'])
+    df_proj['Country'] = df_imputed['Country']
+    df_proj['Cluster'] = labels
     fig, ax = plt.subplots()
-    sns.scatterplot(data=pca_df, x='PC1', y='PC2', hue='Cluster', style='Country', palette='Set2', ax=ax)
+    sns.scatterplot(data=df_proj, x='PC1', y='PC2', hue='Cluster', style='Country', palette='Set2', ax=ax)
     st.pyplot(fig)
 
-    st.subheader("Cluster Averages")
-    cluster_means = df_imputed.groupby('Cluster')[selected_feats].mean().T
-    st.dataframe(cluster_means.style.highlight_max(axis=1))
+    st.subheader("📌 Cluster Averages for Selected Indicators")
+    df_imputed['Cluster'] = labels
+    st.dataframe(df_imputed.groupby('Cluster')[selected_indicators].mean().T.style.highlight_max(axis=1))
 else:
-    st.info("Please select exactly 3 indicators to generate recommendations.")
+    st.info("Please rate at least one indicator to get recommendations.")
