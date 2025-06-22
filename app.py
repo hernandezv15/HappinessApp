@@ -106,7 +106,7 @@ if submitted:
         df_imputed['Preference Score'] = score
         top_countries = df_imputed.sort_values("Preference Score", ascending=False).head(3)
 
- st.subheader("🌟 Recommended Countries for You")
+        st.subheader("🌟 Recommended Countries for You")
         st.dataframe(top_countries[['Country', 'Preference Score'] + selected_indicators])
 
         st.markdown("### Why These Countries?")
