@@ -8,11 +8,12 @@ from sklearn.cluster import KMeans
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pycountry
+
 # Load data
 @st.cache_data
 
 def load_data():
-    df = pd.read_csv("OECD data") 
+    df = pd.read_csv("OECD data")
     df = df.dropna(subset=["OBS_VALUE"])[["Reference area", "Measure", "OBS_VALUE"]]
     df.columns = ["Country", "Indicator", "Value"]
     df_wide = df.pivot_table(index="Country", columns="Indicator", values="Value", aggfunc="mean").reset_index()
@@ -22,8 +23,8 @@ def load_data():
 @st.cache_data
 
 def prepare_data(df):
-    df_cleaned = df.loc[:, df.isnull().mean() < 0.7] 
-    df_cleaned = df_cleaned[df_cleaned.isnull().mean(axis=1) < 0.7] 
+    df_cleaned = df.loc[:, df.isnull().mean() < 0.7]
+    df_cleaned = df_cleaned[df_cleaned.isnull().mean(axis=1) < 0.7]
     imputer = KNNImputer(n_neighbors=5)
     df_numeric = df_cleaned.select_dtypes(include='number')
     df_imputed = pd.DataFrame(imputer.fit_transform(df_numeric), columns=df_numeric.columns, index=df_cleaned.index)
@@ -88,7 +89,6 @@ with st.form("priority_form"):
     submitted = st.form_submit_button("Show Recommendations")
 
 if submitted:
-    # Build full list of all indicators and expand to their direction
     selected_indicators = []
     weights = []
     for category, score in ratings.items():
@@ -107,30 +107,32 @@ if submitted:
         top_countries = df_imputed.sort_values("Preference Score", ascending=False).head(3)
 
         st.subheader("🌟 Recommended Countries for You")
-        st.dataframe(top_countries[['Country', 'Preference Score'] + selected_indicators])
 
-        st.markdown("### Why These Countries?")
         for _, row in top_countries.iterrows():
-            reasons = ", ".join([f"{col}: {row[col]:.2f}" for col in selected_indicators])
-            st.markdown(f"- **{row['Country']}** → {reasons}")
-
-        st.subheader("🗺️ Country Locations on Map")
-        try:
-            map_df = pd.DataFrame()
-            map_df['Country'] = df_imputed['Country']
-            map_df['Score'] = df_imputed['Preference Score']
-            map_df = map_df.merge(
-                pd.DataFrame({
-                    'Country': [country.name for country in pycountry.countries],
-                    'ISO_A3': [country.alpha_3 for country in pycountry.countries]
-                }), on='Country', how='left')
-            st.map(map_df.rename(columns={"lat": "latitude", "lon": "longitude"}))
-        except:
-            st.warning("Map display unavailable due to missing coordinates.")
-
-        st.subheader("📌 Cluster Averages for Selected Indicators")
-        kmeans = KMeans(n_clusters=3, random_state=42)
-        df_imputed['Cluster'] = kmeans.fit_predict(X)
-        st.dataframe(df_imputed.groupby('Cluster')[selected_indicators].mean().T.style.highlight_max(axis=1))
+            st.markdown(f"### 🏷️ {row['Country']}")
+            grades = {}
+            summary = []
+            for category, indicators in indicator_categories.items():
+                if any(ind in selected_indicators for ind in indicators):
+                    cat_values = row[indicators].values
+                    direction_adjusted = []
+                    for ind in indicators:
+                        if ind in selected_indicators:
+                            val = row[ind]
+                            if indicator_direction.get(ind) == "low":
+                                val = -val
+                            direction_adjusted.append(val)
+                    avg_score = np.mean(direction_adjusted) if direction_adjusted else 0
+                    grade = "A" if avg_score > 1.0 else "B" if avg_score > 0.5 else "C" if avg_score > -0.5 else "D" if avg_score > -1.0 else "F"
+                    grades[category] = grade
+                    if grade in ["A", "B"]:
+                        summary.append(f"Excels in {category.lower()}")
+                    elif grade in ["D", "F"]:
+                        summary.append(f"Lags in {category.lower()}")
+            st.markdown("**Category Grades:**")
+            st.write(grades)
+            st.markdown("**Summary:**")
+            st.write(", ".join(summary))
+            st.markdown("---")
     else:
         st.info("Please rate at least one category to get recommendations.")
