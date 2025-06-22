@@ -34,8 +34,9 @@ def prepare_data(df):
     return df_imputed
 
 # Page setup
+st.set_page_config(page_title="Country Recommender", layout="wide")
 st.title("🌍 Country Recommendation Based on Your Priorities")
-st.markdown("Use the **sidebar sliders** to rate the importance of different well-being indicators. We'll recommend the best-matching countries for you!")
+st.markdown("Rate what's important to you on the sliders below, and click **'Show Recommendations'** to view your best-matched countries.")
 
 # Load and prep
 raw = load_data()
@@ -53,46 +54,52 @@ key_indicators = [
     "Household net adjusted disposable income",
     "Feeling lonely",
     "Gender wage gap",
-    "Life satisfaction"
+    "Life satisfaction",
+    "Air pollution PM2.5 exposure",
+    "Access to green spaces"
 ]
 
-st.sidebar.header("Rate What's Important to You (1 = Least, 5 = Most)")
-ratings = {}
-for ind in key_indicators:
-    if ind in df_scaled.columns:
-        ratings[ind] = st.sidebar.slider(ind, 1, 5, 3)
+with st.form("priority_form"):
+    st.subheader("📋 Rate What's Important to You (1 = Least, 5 = Most)")
+    ratings = {}
+    for ind in key_indicators:
+        if ind in df_scaled.columns:
+            ratings[ind] = st.slider(ind, 1, 5, 3)
 
-selected_indicators = [k for k, v in ratings.items() if v > 0]
-weights = np.array([ratings[k] for k in selected_indicators])
+    submitted = st.form_submit_button("Show Recommendations")
 
-if len(selected_indicators) >= 1:
-    X = df_scaled[selected_indicators]
-    score = X @ weights
-    df_imputed['Preference Score'] = score
-    top_countries = df_imputed.sort_values("Preference Score", ascending=False).head(3)
+if submitted:
+    selected_indicators = [k for k, v in ratings.items() if v > 0]
+    weights = np.array([ratings[k] for k in selected_indicators])
 
-    st.subheader("🌟 Recommended Countries for You")
-    st.dataframe(top_countries[['Country', 'Preference Score'] + selected_indicators])
+    if len(selected_indicators) >= 1:
+        X = df_scaled[selected_indicators]
+        score = X @ weights
+        df_imputed['Preference Score'] = score
+        top_countries = df_imputed.sort_values("Preference Score", ascending=False).head(3)
 
-    st.markdown("### Why These Countries?")
-    for _, row in top_countries.iterrows():
-        reasons = ", ".join([f"{col}: {row[col]:.2f}" for col in selected_indicators])
-        st.markdown(f"- **{row['Country']}** → {reasons}")
+        st.subheader("🌟 Recommended Countries for You")
+        st.dataframe(top_countries[['Country', 'Preference Score'] + selected_indicators])
 
-    st.subheader("📊 PCA Projection")
-    pca = PCA(n_components=2)
-    X_pca = pca.fit_transform(X)
-    kmeans = KMeans(n_clusters=3, random_state=42)
-    labels = kmeans.fit_predict(X)
-    df_proj = pd.DataFrame(X_pca, columns=['PC1', 'PC2'])
-    df_proj['Country'] = df_imputed['Country']
-    df_proj['Cluster'] = labels
-    fig, ax = plt.subplots()
-    sns.scatterplot(data=df_proj, x='PC1', y='PC2', hue='Cluster', style='Country', palette='Set2', ax=ax)
-    st.pyplot(fig)
+        st.markdown("### Why These Countries?")
+        for _, row in top_countries.iterrows():
+            reasons = ", ".join([f"{col}: {row[col]:.2f}" for col in selected_indicators])
+            st.markdown(f"- **{row['Country']}** → {reasons}")
 
-    st.subheader("📌 Cluster Averages for Selected Indicators")
-    df_imputed['Cluster'] = labels
-    st.dataframe(df_imputed.groupby('Cluster')[selected_indicators].mean().T.style.highlight_max(axis=1))
-else:
-    st.info("Please rate at least one indicator to get recommendations.")
+        st.subheader("📊 PCA Projection")
+        pca = PCA(n_components=2)
+        X_pca = pca.fit_transform(X)
+        kmeans = KMeans(n_clusters=3, random_state=42)
+        labels = kmeans.fit_predict(X)
+        df_proj = pd.DataFrame(X_pca, columns=['PC1', 'PC2'])
+        df_proj['Country'] = df_imputed['Country']
+        df_proj['Cluster'] = labels
+        fig, ax = plt.subplots()
+        sns.scatterplot(data=df_proj, x='PC1', y='PC2', hue='Cluster', style='Country', palette='Set2', ax=ax)
+        st.pyplot(fig)
+
+        st.subheader("📌 Cluster Averages for Selected Indicators")
+        df_imputed['Cluster'] = labels
+        st.dataframe(df_imputed.groupby('Cluster')[selected_indicators].mean().T.style.highlight_max(axis=1))
+    else:
+        st.info("Please rate at least one indicator to get recommendations.")
