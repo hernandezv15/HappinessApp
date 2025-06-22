@@ -172,5 +172,8 @@ if submitted:
         )
         fig.update_traces(hovertemplate='%{customdata[0]}')
         st.plotly_chart(fig, use_container_width=True)
+
+        st.subheader("📊 All Countries and Indicator Data")
+        st.dataframe(df_imputed.sort_values("Preference Score", ascending=False).reset_index(drop=True))
     else:
         st.info("Please rate at least one category to get recommendations.")
