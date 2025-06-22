@@ -135,19 +135,42 @@ if submitted:
             st.write(", ".join(summary))
             st.markdown("---")
 
-        # Regional interactive map
-        st.subheader("🗺️ Click a Country on the Map to View Category Grades")
+        # Regional interactive map with country hover detail
+        st.subheader("🗺️ Country Scores Map with Expanded Info")
 
         df_imputed['ISO3'] = df_imputed['Country'].apply(lambda x: pycountry.countries.lookup(x).alpha_3 if pycountry.countries.get(name=x) else None)
         df_viz = df_imputed.dropna(subset=['ISO3'])
+
+        # Create hover text
+        hover_text = []
+        for i, row in df_viz.iterrows():
+            text = f"<b>{row['Country']}</b><br>"
+            for cat, inds in indicator_categories.items():
+                cat_vals = []
+                for ind in inds:
+                    if ind in row:
+                        val = row[ind]
+                        if indicator_direction.get(ind) == "low":
+                            val = -val
+                        cat_vals.append(val)
+                if cat_vals:
+                    avg = np.mean(cat_vals)
+                    grade = "A" if avg > 1.0 else "B" if avg > 0.5 else "C" if avg > -0.5 else "D" if avg > -1.0 else "F"
+                    text += f"{cat}: {grade}<br>"
+            hover_text.append(text)
+
+        df_viz['hover'] = hover_text
+
         fig = px.choropleth(
             df_viz,
             locations="ISO3",
             color="Preference Score",
             hover_name="Country",
+            hover_data={"ISO3": False, "Preference Score": True, "hover": True},
             color_continuous_scale="YlGnBu",
-            title="Preference Scores by Country",
+            title="Preference Scores by Country with Grades",
         )
+        fig.update_traces(hovertemplate='%{customdata[0]}')
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Please rate at least one category to get recommendations.")
