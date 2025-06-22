@@ -47,24 +47,23 @@ features_scaled = scaler.fit_transform(features)
 df_scaled = pd.DataFrame(features_scaled, columns=features.columns, index=features.index)
 df_scaled['Country'] = df_imputed['Country']
 
-# Define key indicators for user rating
-key_indicators = [
-    "Feeling safe at night",
-    "Employment rate",
-    "Household net adjusted disposable income",
-    "Feeling lonely",
-    "Gender wage gap",
-    "Life satisfaction",
-    "Air pollution PM2.5 exposure",
-    "Access to green spaces"
-]
+# Organize indicators by category
+indicator_categories = {
+    "Social": ["Feeling lonely", "Feeling safe at night", "Life satisfaction"],
+    "Economic": ["Employment rate", "Household net adjusted disposable income", "Gender wage gap"],
+    "Environmental": ["Air pollution PM2.5 exposure", "Access to green spaces", "Urban population exposure to air pollution", "Waste recycling rate"],
+    "Health": ["Life expectancy", "Mental health issues"],
+    "Education": ["Educational attainment", "Adult skills"]
+}
 
+ratings = {}
 with st.form("priority_form"):
     st.subheader("📋 Rate What's Important to You (1 = Least, 5 = Most)")
-    ratings = {}
-    for ind in key_indicators:
-        if ind in df_scaled.columns:
-            ratings[ind] = st.slider(ind, 1, 5, 3)
+    for category, indicators in indicator_categories.items():
+        st.markdown(f"**{category} Indicators**")
+        for ind in indicators:
+            if ind in df_scaled.columns:
+                ratings[ind] = st.slider(ind, 1, 5, 3)
 
     submitted = st.form_submit_button("Show Recommendations")
 
