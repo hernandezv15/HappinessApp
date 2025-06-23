@@ -52,9 +52,6 @@ def load_data():
         # Select the most recent year for each country-indicator pair
         df = df.loc[df.groupby(['Country', 'Indicator'])['Year'].idxmax()]
         df_wide = df.pivot_table(index="Country", columns="Indicator", values="Value", aggfunc="mean").reset_index()
-        # Debug: Show available indicators
-        st.markdown("**Available Indicators:**")
-        st.write(df_wide.columns.tolist())
         return df_wide
     except Exception as e:
         st.error(f"Error loading data: {e}")
@@ -65,8 +62,8 @@ def load_data():
 def prepare_data(df):
     try:
         # Remove columns and rows with too many missing values
-        df_cleaned = df.loc[:, df.isnull().mean() < 0.3]  # Lowered threshold
-        df_cleaned = df_cleaned[df_cleaned.isnull().mean(axis=1) < 0.3]
+        df_cleaned = df.loc[:, df.isnull().mean() < 0.7]
+        df_cleaned = df_cleaned[df_cleaned.isnull().mean(axis=1) < 0.7]
         # Impute missing values
         imputer = KNNImputer(n_neighbors=10)
         df_numeric = df_cleaned.select_dtypes(include='number')
@@ -81,9 +78,6 @@ def prepare_data(df):
         features_scaled = scaler.fit_transform(df_imputed.drop(columns=['Country']))
         df_scaled = pd.DataFrame(features_scaled, columns=df_numeric.columns, index=df_cleaned.index)
         df_scaled['Country'] = df_cleaned['Country']
-        # Debug: Show variances
-        st.markdown("**Feature Variances:**")
-        st.write(df_scaled.select_dtypes(include='number').var())
         return df_imputed, df_scaled
     except Exception as e:
         st.error(f"Error preparing data: {e}")
@@ -123,10 +117,6 @@ with st.form("priority_form"):
     submitted = st.form_submit_button("Show Recommendations")
 
 if submitted:
-    # Debug: Show user ratings
-    st.markdown("**User Ratings:**")
-    st.json(ratings)
-    
     selected_indicators = []
     weights = []
     for category, score in ratings.items():
@@ -137,12 +127,6 @@ if submitted:
                     weight = score ** 2 if direction == "high" else -(score ** 2)  # Exponential weighting
                     selected_indicators.append(indicator)
                     weights.append(weight)
-    
-    # Debug: Show selected indicators and weights
-    st.markdown("**Selected Indicators:**")
-    st.write(selected_indicators)
-    st.markdown("**Weights:**")
-    st.write(weights)
     
     if selected_indicators:
         try:
@@ -194,12 +178,6 @@ if submitted:
                 st.dataframe(row[["Country"] + selected_indicators + ["Preference Score"]].to_frame().T)
                 st.markdown("---")
             
-            # Debug: Show raw and scaled values for top 3
-            st.markdown("**Raw Data for Top 3 Countries:**")
-            st.dataframe(df_imputed.loc[top_3.index, ["Country"] + selected_indicators])
-            st.markdown("**Scaled Data for Top 3 Countries:**")
-            st.dataframe(df_scaled.loc[top_3.index, ["Country"] + selected_indicators])
-            
             # Regional interactive map with country hover detail
             st.subheader("🗺️ Country Scores Map with Expanded Info")
             df_imputed['ISO3'] = df_imputed['Country'].apply(
@@ -241,21 +219,3 @@ if submitted:
             fig.update_traces(hovertemplate='%{customdata[0]}')
             fig.update_layout(
                 margin={"r":0,"t":50,"l":0,"b":0},
-                height=600
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Full dataset table
-            st.subheader("📊 All Countries and Indicator Data")
-            st.dataframe(df_imputed.sort_values("Preference Score", ascending=False).reset_index(drop=True))
-            csv_imputed = df_imputed.to_csv(index=False)
-            st.download_button(
-                label="Download Full Dataset (Imputed)",
-                data=csv_imputed,
-                file_name="oecd_imputed_data.csv",
-                mime="text/csv"
-            )
-        except Exception as e:
-            st.error(f"Error calculating recommendations or generating outputs: {e}")
-    else:
-        st.info("Please rate at least one category to get recommendations.")
