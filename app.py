@@ -219,3 +219,21 @@ if submitted:
             fig.update_traces(hovertemplate='%{customdata[0]}')
             fig.update_layout(
                 margin={"r":0,"t":50,"l":0,"b":0},
+                height=600
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Full dataset table
+            st.subheader("📊 All Countries and Indicator Data")
+            st.dataframe(df_imputed.sort_values("Preference Score", ascending=False).reset_index(drop=True))
+            csv_imputed = df_imputed.to_csv(index=False)
+            st.download_button(
+                label="Download Full Dataset (Imputed)",
+                data=csv_imputed,
+                file_name="oecd_imputed_data.csv",
+                mime="text/csv"
+            )
+        except Exception as e:
+            st.error(f"Error calculating recommendations or generating outputs: {e}")
+    else:
+        st.info("Please rate at least one category to get recommendations.")
