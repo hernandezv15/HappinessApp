@@ -48,7 +48,7 @@ def prepare_data(df):
         df_cleaned = df_cleaned[df_cleaned.isnull().mean(axis=1) < 0.5]
         
         # Impute missing values
-        imputer = KNNImputer(n_neighbors=5)
+        imputer = KNNImputer(n_neighbors=10)  # Increased nGZ# Increased n_neighbors for better imputation
         numeric_columns = df_cleaned.select_dtypes(include='number').columns
         df_imputed = df_cleaned.copy()
         df_imputed[numeric_columns] = imputer.fit_transform(df_cleaned[numeric_columns])
@@ -99,7 +99,7 @@ if st.button("Get Recommendations"):
             for indicator in indicator_categories[category]:
                 if indicator in df_scaled.columns:
                     direction = indicator_direction.get(indicator, "high")
-                    weight = score if direction == "high" else -score
+                    weight = score ** 2 if direction == "high" else -(score ** 2)  # Exponential weighting
                     selected_indicators.append(indicator)
                     weights.append(weight)
     
@@ -126,39 +126,127 @@ if st.button("Get Recommendations"):
             top_3 = df_imputed.sort_values("Preference Score", ascending=False).head(3)
             st.markdown("**Detailed Data for Top 3 Countries:**")
             st.dataframe(top_3[["Country"] + selected_indicators + ["Preference Score"]])
+            
+            # Debug: Show raw and scaled values for top 3
+            st.markdown("**Raw Data for Top 3 Countries:**")
+            st.dataframe(df_imputed.loc[top_3.index, ["Country"] + selected_indicators])
+            st.markdown("**Scaled Data for Top 3 Countries:**")
+            st.dataframe(df_scaled.loc[top_3.index, ["Country"] + selected_indicators])
         except Exception as e:
             st.error(f"Error calculating recommendations: {e}")
     else:
         st.warning("No valid indicators selected. Please adjust ratings.")
 
-# Test preset button for debugging
-if st.button("Test Economic Stability Priority"):
-    ratings = {cat: 1 for cat in indicator_categories}
-    ratings["Economic Stability"] = 5
-    st.markdown("**Preset Ratings:**")
-    st.json(ratings)
-    
-    selected_indicators = []
-    weights = []
-    for category, score in ratings.items():
-        if score > 0:
-            for indicator in indicator_categories[category]:
-                if indicator in df_scaled.columns:
-                    direction = indicator_direction.get(indicator, "high")
-                    weight = score if direction == "high" else -score
-                    selected_indicators.append(indicator)
-                    weights.append(weight)
-    
-    st.markdown("**Selected Indicators (Preset):**")
-    st.write(selected_indicators)
-    st.markdown("**Weights (Preset):**")
-    st.write(weights)
-    
-    if selected_indicators:
-        X = df_scaled[selected_indicators]
-        weights = np.array(weights) / np.sum(np.abs(weights))
-        score = X @ weights
-        df_imputed['Preference Score'] = score
-        top_countries = df_imputed.sort_values("Preference Score", ascending=False)[["Country", "Preference Score"]].head(10)
-        st.markdown("**Top 10 Countries (Preset):**")
-        st.dataframe(top_countries)
+# Preset buttons for testing
+st.markdown("**Test Presets:**")
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button("Test Economic Stability Priority"):
+        ratings = {cat: 1 for cat in indicator_categories}
+        ratings["Economic Stability"] = 5
+        st.markdown("**Preset Ratings (Economic Stability):**")
+        st.json(ratings)
+        
+        selected_indicators = []
+        weights = []
+        for category, score in ratings.items():
+            if score > 0:
+                for indicator in indicator_categories[category]:
+                    if indicator in df_scaled.columns:
+                        direction = indicator_direction.get(indicator, "high")
+                        weight = score ** 2 if direction == "high" else -(score ** 2)
+                        selected_indicators.append(indicator)
+                        weights.append(weight)
+        
+        st.markdown("**Selected Indicators (Preset):**")
+        st.write(selected_indicators)
+        st.markdown("**Weights (Preset):**")
+        st.write(weights)
+        
+        if selected_indicators:
+            X = df_scaled[selected_indicators]
+            weights = np.array(weights) / np.sum(np.abs(weights))
+            score = X @ weights
+            df_imputed['Preference Score'] = score
+            top_countries = df_imputed.sort_values("Preference Score", ascending=False)[["Country", "Preference Score"]].head(10)
+            st.markdown("**Top 10 Countries (Preset):**")
+            st.dataframe(top_countries)
+            top_3 = df_imputed.sort_values("Preference Score", ascending=False).head(3)
+            st.markdown("**Raw Data for Top 3 (Preset):**")
+            st.dataframe(df_imputed.loc[top_3.index, ["Country"] + selected_indicators])
+            st.markdown("**Scaled Data for Top 3 (Preset):**")
+            st.dataframe(df_scaled.loc[top_3.index, ["Country"] + selected_indicators])
+
+with col2:
+    if st.button("Test Safety and Belonging Priority"):
+        ratings = {cat: 1 for cat in indicator_categories}
+        ratings["Safety and Belonging"] = 5
+        st.markdown("**Preset Ratings (Safety and Belonging):**")
+        st.json(ratings)
+        
+        selected_indicators = []
+        weights = []
+        for category, score in ratings.items():
+            if score > 0:
+                for indicator in indicator_categories[category]:
+                    if indicator in df_scaled.columns:
+                        direction = indicator_direction.get(indicator, "high")
+                        weight = score ** 2 if direction == "high" else -(score ** 2)
+                        selected_indicators.append(indicator)
+                        weights.append(weight)
+        
+        st.markdown("**Selected Indicators (Preset):**")
+        st.write(selected_indicators)
+        st.markdown("**Weights (Preset):**")
+        st.write(weights)
+        
+        if selected_indicators:
+            X = df_scaled[selected_indicators]
+            weights = np.array(weights) / np.sum(np.abs(weights))
+            score = X @ weights
+            df_imputed['Preference Score'] = score
+            top_countries = df_imputed.sort_values("Preference Score", ascending=False)[["Country", "Preference Score"]].head(10)
+            st.markdown("**Top 10 Countries (Preset):**")
+            st.dataframe(top_countries)
+            top_3 = df_imputed.sort_values("Preference Score", ascending=False).head(3)
+            st.markdown("**Raw Data for Top 3 (Preset):**")
+            st.dataframe(df_imputed.loc[top_3.index, ["Country"] + selected_indicators])
+            st.markdown("**Scaled Data for Top 3 (Preset):**")
+            st.dataframe(df_scaled.loc[top_3.index, ["Country"] + selected_indicators])
+
+with col3:
+    if st.button("Test Overall Well-being Priority"):
+        ratings = {cat: 1 for cat in indicator_categories}
+        ratings["Overall Well-being"] = 5
+        st.markdown("**Preset Ratings (Overall Well-being):**")
+        st.json(ratings)
+        
+        selected_indicators = []
+        weights = []
+        for category, score in ratings.items():
+            if score > 0:
+                for indicator in indicator_categories[category]:
+                    if indicator in df_scaled.columns:
+                        direction = indicator_direction.get(indicator, "high")
+                        weight = score ** 2 if direction == "high" else -(score ** 2)
+                        selected_indicators.append(indicator)
+                        weights.append(weight)
+        
+        st.markdown("**Selected Indicators (Preset):**")
+        st.write(selected_indicators)
+        st.markdown("**Weights (Preset):**")
+        st.write(weights)
+        
+        if selected_indicators:
+            X = df_scaled[selected_indicators]
+            weights = np.array(weights) / np.sum(np.abs(weights))
+            score = X @ weights
+            df_imputed['Preference Score'] = score
+            top_countries = df_imputed.sort_values("Preference Score", ascending=False)[["Country", "Preference Score"]].head(10)
+            st.markdown("**Top 10 Countries (Preset):**")
+            st.dataframe(top_countries)
+            top_3 = df_imputed.sort_values("Preference Score", ascending=False).head(3)
+            st.markdown("**Raw Data for Top 3 (Preset):**")
+            st.dataframe(df_imputed.loc[top_3.index, ["Country"] + selected_indicators])
+            st.markdown("**Scaled Data for Top 3 (Preset):**")
+            st.dataframe(df_scaled.loc[top_3.index, ["Country"] + selected_indicators])
