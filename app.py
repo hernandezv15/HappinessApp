@@ -19,7 +19,9 @@ def load_data():
     df.columns = ["Country", "Indicator", "Value"]
     df_wide = df.pivot_table(index="Country", columns="Indicator", values="Value", aggfunc="mean").reset_index()
     return df_wide
-
+available_indicators = df_wide.columns.tolist()
+missing_indicators = [ind for cat, inds in indicator_categories.items() for ind in inds if ind not in available_indicators]
+st.write("Missing Indicators:", missing_indicators)
 # Impute and standardize
 @st.cache_data
 
