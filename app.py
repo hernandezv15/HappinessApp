@@ -62,7 +62,7 @@ def load_data():
 def prepare_data(df):
     try:
         # Remove columns and rows with too many missing values
-        df_cleaned = df.loc[:, df.isnull().mean() < 0.7]
+        df_cleaned = df.loc[:, df.isnull().mean() < 0.7] 
         df_cleaned = df_cleaned[df_cleaned.isnull().mean(axis=1) < 0.7]
         # Impute missing values
         imputer = KNNImputer(n_neighbors=10)
@@ -84,12 +84,18 @@ def prepare_data(df):
         return df, df
 
 def assign_grade(score, percentiles):
-    if score >= percentiles[90]: return "A+"
-    elif score >= percentiles[80]: return "A"
-    elif score >= percentiles[60]: return "B"
-    elif score >= percentiles[40]: return "C"
-    elif score >= percentiles[20]: return "D"
-    else: return "F"
+    if len(percentiles) == 5:  # Full percentiles [20, 40, 60, 80, 90]
+        if score >= percentiles[4]: return "A+"
+        elif score >= percentiles[3]: return "A"
+        elif score >= percentiles[2]: return "B"
+        elif score >= percentiles[1]: return "C"
+        elif score >= percentiles[0]: return "D"
+        else: return "F"
+    else:  # Simplified percentiles [20, 50, 80]
+        if score >= percentiles[2]: return "A"
+        elif score >= percentiles[1]: return "B"
+        elif score >= percentiles[0]: return "C"
+        else: return "D"
 
 def assign_aesthetic_rank(index):
     if index < 3: return "🌟"  # Top 3
@@ -136,8 +142,12 @@ if submitted:
             score = X @ weights
             df_imputed['Preference Score'] = score
             
-            # Calculate percentiles for grading
-            percentiles = np.percentile(df_imputed['Preference Score'], [20, 40, 60, 80, 90])
+            # Check dataset size
+            if len(df_imputed) < 10:
+                st.warning(f"Only {len(df_imputed)} countries available after processing. Grades may be limited.")
+                percentiles = np.percentile(df_imputed['Preference Score'], [20, 50, 80])  # Simplified
+            else:
+                percentiles = np.percentile(df_imputed['Preference Score'], [20, 40, 60, 80, 90])
             
             # Top 10 countries with grades and aesthetic ranks
             st.subheader("🌟 Top 10 Recommended Countries")
@@ -235,5 +245,6 @@ if submitted:
             )
         except Exception as e:
             st.error(f"Error calculating recommendations or generating outputs: {e}")
+            st.write(f"Number of countries in dataset: {len(df_imputed)}")
     else:
         st.info("Please rate at least one category to get recommendations.")
