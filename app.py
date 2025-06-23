@@ -153,7 +153,7 @@ if submitted:
             st.subheader("🌟 Top 10 Recommended Countries")
             top_countries = df_imputed.sort_values("Preference Score", ascending=False)[["Country", "Preference Score"]].head(10).copy()
             top_countries['Grade'] = top_countries['Preference Score'].apply(lambda x: assign_grade(x, percentiles))
-            top_countries['Aesthetic Rank'] = [assign_aesthetic_rank(i) for i in range(len(top_countries))]
+            top_countries['Emoji Rank'] = [assign_aesthetic_rank(i) for i in range(len(top_countries))]
             st.dataframe(top_countries)
             
             # Detailed data for top 3 with category grades
