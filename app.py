@@ -65,12 +65,16 @@ def load_data():
 def prepare_data(df):
     try:
         # Remove columns and rows with too many missing values
-        df_cleaned = df.loc[:, df.isnull().mean() < 0.5]  # Reduced threshold for more data
-        df_cleaned = df_cleaned[df_cleaned.isnull().mean(axis=1) < 0.5]
+        df_cleaned = df.loc[:, df.isnull().mean() < 0.3]  # Lowered threshold
+        df_cleaned = df_cleaned[df_cleaned.isnull().mean(axis=1) < 0.3]
         # Impute missing values
-        imputer = KNNImputer(n_neighbors=10)  # Increased for better imputation
+        imputer = KNNImputer(n_neighbors=10)
         df_numeric = df_cleaned.select_dtypes(include='number')
         df_imputed = pd.DataFrame(imputer.fit_transform(df_numeric), columns=df_numeric.columns, index=df_cleaned.index)
+        # Median imputation for sparse indicators
+        for col in ["Feeling lonely", "Negative affect balance"]:
+            if col in df_cleaned.columns:
+                df_imputed[col] = df_cleaned[col].fillna(df_cleaned[col].median())
         df_imputed.insert(0, 'Country', df_cleaned['Country'].values)
         # Scale features
         scaler = StandardScaler()
@@ -113,4 +117,145 @@ df_imputed, df_scaled = prepare_data(df_raw)
 ratings = {}
 with st.form("priority_form"):
     st.subheader("📋 Rate Category Importance (1 = Least, 5 = Most)")
-    for category,
+    for category, indicators in indicator_categories.items():
+        st.markdown(f"**{category}**")
+        ratings[category] = st.slider(f"Importance of {category.lower()}", 1, 5, 3)
+    submitted = st.form_submit_button("Show Recommendations")
+
+if submitted:
+    # Debug: Show user ratings
+    st.markdown("**User Ratings:**")
+    st.json(ratings)
+    
+    selected_indicators = []
+    weights = []
+    for category, score in ratings.items():
+        if score > 0:
+            for indicator in indicator_categories[category]:
+                if indicator in df_scaled.columns:
+                    direction = indicator_direction.get(indicator, "high")
+                    weight = score ** 2 if direction == "high" else -(score ** 2)  # Exponential weighting
+                    selected_indicators.append(indicator)
+                    weights.append(weight)
+    
+    # Debug: Show selected indicators and weights
+    st.markdown("**Selected Indicators:**")
+    st.write(selected_indicators)
+    st.markdown("**Weights:**")
+    st.write(weights)
+    
+    if selected_indicators:
+        try:
+            # Calculate preference score
+            X = df_scaled[selected_indicators]
+            weights = np.array(weights) / np.sum(np.abs(weights))  # Normalize weights
+            score = X @ weights
+            df_imputed['Preference Score'] = score
+            
+            # Calculate percentiles for grading
+            percentiles = np.percentile(df_imputed['Preference Score'], [20, 40, 60, 80, 90])
+            
+            # Top 10 countries with grades and aesthetic ranks
+            st.subheader("🌟 Top 10 Recommended Countries")
+            top_countries = df_imputed.sort_values("Preference Score", ascending=False)[["Country", "Preference Score"]].head(10).copy()
+            top_countries['Grade'] = top_countries['Preference Score'].apply(lambda x: assign_grade(x, percentiles))
+            top_countries['Aesthetic Rank'] = [assign_aesthetic_rank(i) for i in range(len(top_countries))]
+            st.dataframe(top_countries)
+            
+            # Detailed data for top 3 with category grades
+            st.subheader("📊 Detailed Data for Top 3 Countries")
+            top_3 = df_imputed.sort_values("Preference Score", ascending=False).head(3)
+            for _, row in top_3.iterrows():
+                st.markdown(f"### 🏷️ {row['Country']}")
+                grades = {}
+                summary = []
+                for category, indicators in indicator_categories.items():
+                    if any(ind in selected_indicators for ind in indicators):
+                        cat_values = [row[ind] for ind in indicators if ind in selected_indicators]
+                        direction_adjusted = []
+                        for ind in indicators:
+                            if ind in selected_indicators:
+                                val = row[ind]
+                                if indicator_direction.get(ind) == "low":
+                                    val = -val
+                                direction_adjusted.append(val)
+                        avg_score = np.mean(direction_adjusted) if direction_adjusted else 0
+                        grade = "A" if avg_score > 1.0 else "B" if avg_score > 0.5 else "C" if avg_score > -0.5 else "D" if avg_score > -1.0 else "F"
+                        grades[category] = grade
+                        if grade in ["A", "B"]:
+                            summary.append(f"Excels in {category.lower()}")
+                        elif grade in ["D", "F"]:
+                            summary.append(f"Lags in {category.lower()}")
+                st.markdown("**Category Grades:**")
+                st.write(grades)
+                st.markdown("**Summary:**")
+                st.write(", ".join(summary))
+                st.markdown("**Indicator Values:**")
+                st.dataframe(row[["Country"] + selected_indicators + ["Preference Score"]].to_frame().T)
+                st.markdown("---")
+            
+            # Debug: Show raw and scaled values for top 3
+            st.markdown("**Raw Data for Top 3 Countries:**")
+            st.dataframe(df_imputed.loc[top_3.index, ["Country"] + selected_indicators])
+            st.markdown("**Scaled Data for Top 3 Countries:**")
+            st.dataframe(df_scaled.loc[top_3.index, ["Country"] + selected_indicators])
+            
+            # Regional interactive map with country hover detail
+            st.subheader("🗺️ Country Scores Map with Expanded Info")
+            df_imputed['ISO3'] = df_imputed['Country'].apply(
+                lambda x: pycountry.countries.lookup(x).alpha_3 if pycountry.countries.get(name=x) else None
+            )
+            if df_imputed['ISO3'].isnull().any():
+                st.warning("Some countries could not be mapped to ISO-3 codes. Check country names in dataset.")
+            df_viz = df_imputed.dropna(subset=['ISO3'])
+            
+            # Create hover text
+            hover_text = []
+            for i, row in df_viz.iterrows():
+                text = f"<b>{row['Country']}</b><br>Preference Score: {row['Preference Score']:.2f}<br>"
+                for cat, inds in indicator_categories.items():
+                    cat_vals = []
+                    for ind in inds:
+                        if ind in row:
+                            val = row[ind]
+                            if indicator_direction.get(ind) == "low":
+                                val = -val
+                            cat_vals.append(val)
+                    if cat_vals:
+                        avg = np.mean(cat_vals)
+                        grade = "A" if avg > 1.0 else "B" if avg > 0.5 else "C" if avg > -0.5 else "D" if avg > -1.0 else "F"
+                        text += f"{cat}: {grade}<br>"
+                hover_text.append(text)
+            
+            df_viz['hover'] = hover_text
+            
+            fig = px.choropleth(
+                df_viz,
+                locations="ISO3",
+                color="Preference Score",
+                hover_name="Country",
+                hover_data={"ISO3": False, "Preference Score": True, "hover": True},
+                color_continuous_scale="YlGnBu",
+                title="Preference Scores by Country with Grades"
+            )
+            fig.update_traces(hovertemplate='%{customdata[0]}')
+            fig.update_layout(
+                margin={"r":0,"t":50,"l":0,"b":0},
+                height=600
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Full dataset table
+            st.subheader("📊 All Countries and Indicator Data")
+            st.dataframe(df_imputed.sort_values("Preference Score", ascending=False).reset_index(drop=True))
+            csv_imputed = df_imputed.to_csv(index=False)
+            st.download_button(
+                label="Download Full Dataset (Imputed)",
+                data=csv_imputed,
+                file_name="oecd_imputed_data.csv",
+                mime="text/csv"
+            )
+        except Exception as e:
+            st.error(f"Error calculating recommendations or generating outputs: {e}")
+    else:
+        st.info("Please rate at least one category to get recommendations.")
