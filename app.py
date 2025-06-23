@@ -26,7 +26,7 @@ indicator_direction = {
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_csv("OECD data.csv")
+        df = pd.read_csv("OECD data")
         df = df.dropna(subset=["OBS_VALUE"])[["Reference area", "Measure", "OBS_VALUE", "TIME_PERIOD"]]
         df.columns = ["Country", "Indicator", "Value", "Year"]
         # Select the most recent year for each country-indicator pair
