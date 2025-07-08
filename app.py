@@ -20,8 +20,8 @@ st.title("🌍 Country Recommender Using Category Priorities")
 def load_and_prepare_data():
     df = pd.read_excel("Capstone Final Dataset 2019-2025_v2.xlsx", sheet_name="sheet 1")
 
-    df = df.loc[:, df.isnull().mean() < 0.9]
-    df = df[df.isnull().mean(axis=1) < 0.9].reset_index(drop=True)
+    df = df.loc[:, df.isnull().mean() < 0.45]
+    df = df[df.isnull().mean(axis=1) < 0.45].reset_index(drop=True)
 
     topics = ["Politics", "Family", "Leisure time", "Work", "Friends", "Religion"]
     weights = {
