@@ -28,7 +28,6 @@ def load_data():
     ]]
     df = df.dropna(subset=['Entity'])
     df = df[~df['Entity'].str.contains(r'\(|World|income', regex=True)]
-
     df.columns = [
         'Country', 'Internet Access', 'Relationship Satisfaction',
         'Very Leisure', 'Very Politics', 'Very Family',
@@ -37,6 +36,9 @@ def load_data():
         'NotAtAll Leisure', 'NotAtAll Politics', 'NotAtAll Family',
         'Safety Perception', 'Life Expectancy'
     ]
+
+    # Drop duplicate rows to prevent same country showing more than once
+    df = df.drop_duplicates(subset='Country')
 
     # Impute missing values using KNN
     impute_cols = df.select_dtypes(include='number').columns
@@ -74,23 +76,24 @@ importance = {
     'Life Expectancy': st.slider('Importance of Longevity/Life Expectancy', 1, 5, 3)
 }
 
-# Load and score data
-df = load_data()
+# Generate button
+if st.button("🔍 Generate Recommendations"):
+    df = load_data()
 
-# Normalize each category
-df_norm = df.copy()
-for col in importance.keys():
-    df_norm[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+    # Normalize each category
+    df_norm = df.copy()
+    for col in importance.keys():
+        df_norm[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
 
-# Weighted score
-weights = np.array([importance[col] for col in importance])
-df_norm['Score'] = df_norm[list(importance.keys())].values @ weights
+    # Weighted score
+    weights = np.array([importance[col] for col in importance])
+    df_norm['Score'] = df_norm[list(importance.keys())].values @ weights
 
-# Show top countries
-top_countries = df_norm.sort_values(by='Score', ascending=False).head(10)
+    # Show top countries
+    top_countries = df_norm.sort_values(by='Score', ascending=False).head(10)
 
-st.subheader("🏆 Top 10 Recommended Countries")
-st.dataframe(top_countries[['Country', 'Score'] + list(importance.keys())].reset_index(drop=True))
+    st.subheader("🏆 Top 10 Recommended Countries")
+    st.dataframe(top_countries[['Country', 'Score'] + list(importance.keys())].reset_index(drop=True))
 
-# Bar chart
-st.bar_chart(top_countries.set_index('Country')['Score'])
+    # Bar chart
+    st.bar_chart(top_countries.set_index('Country')['Score'])
