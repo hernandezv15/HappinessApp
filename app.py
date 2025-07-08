@@ -20,8 +20,8 @@ st.title("🌍 Country Recommender Using Category Priorities")
 def load_and_prepare_data():
     df = pd.read_excel("Capstone Final Dataset 2019-2025_v2.xlsx", sheet_name="sheet 1")
 
-    df = df.loc[:, df.isnull().mean() < 0.90]
-    df = df[df.isnull().mean(axis=1) < 0.90].reset_index(drop=True)
+    df = df.loc[:, df.isnull().mean() < 0.9]
+    df = df[df.isnull().mean(axis=1) < 0.9].reset_index(drop=True)
 
     topics = ["Politics", "Family", "Leisure time", "Work", "Friends", "Religion"]
     weights = {
@@ -35,13 +35,14 @@ def load_and_prepare_data():
 
     for topic in topics:
         base_cols = [f"{label} in life: {topic}" for label in weights]
-        if all(col in df.columns for col in base_cols):
-            numerator = sum(weights[label] * df[f"{label} in life: {topic}"].fillna(0) for label in weights)
-            denominator = sum(df[f"{label} in life: {topic}"].fillna(0) for label in weights)
+        available_cols = [col for col in base_cols if col in df.columns]
+        if len(available_cols) >= 2:  # Create index if at least 2 response types exist
+            numerator = sum(weights[label] * df.get(f"{label} in life: {topic}", 0).fillna(0) for label in weights if f"{label} in life: {topic}" in df.columns)
+            denominator = sum(df.get(f"{label} in life: {topic}", 0).fillna(0) for label in weights if f"{label} in life: {topic}" in df.columns)
             index_name = f"{topic.replace(' ', '_')}_Importance_Index"
             df[index_name] = numerator / denominator.replace(0, np.nan)
             created_indices.append((topic, index_name))
-            drop_cols = base_cols + [f"{x}: Important in life: {topic}" for x in ["Don't know", "No answer"]]
+            drop_cols = available_cols + [f"{x}: Important in life: {topic}" for x in ["Don't know", "No answer"]]
             columns_to_drop.extend([col for col in drop_cols if col in df.columns])
 
     df.drop(columns=columns_to_drop, inplace=True, errors='ignore')
