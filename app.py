@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.impute import KNNImputer
 from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
 import plotly.express as px
 
 # Load data
@@ -99,22 +100,24 @@ if st.button("🔍 Generate Recommendations"):
     st.subheader("📋 Full Recommendations")
     st.dataframe(top_countries[['Country', 'Score'] + list(importance.keys())].reset_index(drop=True))
 
-    st.subheader("📊 Country Score Chart")
-    st.bar_chart(top_countries.set_index('Country')['Score'])
-
     st.subheader("🧭 Country Clusters (Interactive)")
     pca = PCA(n_components=2)
     components = pca.fit_transform(df_norm[list(importance.keys())])
     df_norm['PC1'], df_norm['PC2'] = components[:, 0], components[:, 1]
+
+    # Clustering
+    kmeans = KMeans(n_clusters=4, random_state=42)
+    df_norm['Cluster'] = kmeans.fit_predict(components)
 
     strengths = df_norm[list(importance.keys())].idxmax(axis=1)
     weaknesses = df_norm[list(importance.keys())].idxmin(axis=1)
     blurbs = [f"Excels in {s}, lags in {w}" for s, w in zip(strengths, weaknesses)]
 
     fig = px.scatter(
-        df_norm, x='PC1', y='PC2', hover_name='Country',
+        df_norm, x='PC1', y='PC2', color='Cluster',
+        hover_name='Country',
         hover_data={'Score': True, 'Strength': strengths, 'Weakness': weaknesses},
         title="Country Clusters Based on Your Values"
     )
-    fig.update_traces(marker=dict(size=6), selector=dict(mode='markers'))
+    fig.update_traces(marker=dict(size=7), selector=dict(mode='markers'))
     st.plotly_chart(fig, use_container_width=True)
