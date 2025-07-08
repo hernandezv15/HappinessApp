@@ -32,11 +32,12 @@ def load_and_prepare_data():
     }
     columns_to_drop = []
     created_indices = []
+    skipped_indices = []
 
     for topic in topics:
         base_cols = [f"{label} in life: {topic}" for label in weights]
         available_cols = [col for col in base_cols if col in df.columns]
-        if len(available_cols) >= 2:  # Create index if at least 2 response types exist
+        if len(available_cols) >= 1:  # Relaxed to 1 column minimum
             numerator = sum(weights[label] * df.get(f"{label} in life: {topic}", 0).fillna(0) for label in weights if f"{label} in life: {topic}" in df.columns)
             denominator = sum(df.get(f"{label} in life: {topic}", 0).fillna(0) for label in weights if f"{label} in life: {topic}" in df.columns)
             index_name = f"{topic.replace(' ', '_')}_Importance_Index"
@@ -44,6 +45,8 @@ def load_and_prepare_data():
             created_indices.append((topic, index_name))
             drop_cols = available_cols + [f"{x}: Important in life: {topic}" for x in ["Don't know", "No answer"]]
             columns_to_drop.extend([col for col in drop_cols if col in df.columns])
+        else:
+            skipped_indices.append(topic)
 
     df.drop(columns=columns_to_drop, inplace=True, errors='ignore')
     df = df[df['Cantril ladder score'].notna()].copy()
@@ -56,10 +59,10 @@ def load_and_prepare_data():
     scaler = StandardScaler()
     X_scaled = pd.DataFrame(scaler.fit_transform(X_imputed), columns=X.columns)
     X_scaled.insert(0, "Entity", df_meta["Entity"].values)
-    return X_scaled, df_meta, created_indices
+    return X_scaled, df_meta, created_indices, skipped_indices
 
 # Load and prep data
-df_scaled, df_meta, created_indices = load_and_prepare_data()
+df_scaled, df_meta, created_indices, skipped_indices = load_and_prepare_data()
 
 # Define available categories from created indices
 indicator_categories = {
@@ -70,6 +73,9 @@ st.markdown("### 🎛️ Rate Category Importance")
 ratings = {}
 for cat in indicator_categories:
     ratings[cat] = st.slider(f"Importance of {cat}", 1, 5, 3)
+
+if skipped_indices:
+    st.info(f"⚠️ Skipped categories due to missing data: {', '.join(skipped_indices)}")
 
 submitted = st.button("Generate Rankings")
 
