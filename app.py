@@ -112,9 +112,9 @@ if st.button("🔍 Generate Recommendations"):
     blurbs = [f"Excels in {s}, lags in {w}" for s, w in zip(strengths, weaknesses)]
 
     fig = px.scatter(
-        df_norm, x='PC1', y='PC2', text='Country', hover_name='Country',
+        df_norm, x='PC1', y='PC2', hover_name='Country',
         hover_data={'Score': True, 'Strength': strengths, 'Weakness': weaknesses},
         title="Country Clusters Based on Your Values"
     )
-    fig.update_traces(marker=dict(size=10), selector=dict(mode='markers'))
+    fig.update_traces(marker=dict(size=6), selector=dict(mode='markers'))
     st.plotly_chart(fig, use_container_width=True)
