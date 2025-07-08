@@ -23,7 +23,7 @@ def load_and_prepare_data():
     df = df.loc[:, df.isnull().mean() < 0.9]
     df = df[df.isnull().mean(axis=1) < 0.9].reset_index(drop=True)
 
-    topics = ["Politics", "Family", "Leisure time"]
+    topics = ["Politics", "Family", "Leisure time", "Work", "Friends", "Religion"]
     weights = {
         "Very important": 5,
         "Rather important": 4,
@@ -61,7 +61,10 @@ df_scaled, df_meta = load_and_prepare_data()
 indicator_categories = {
     "Values & Politics": ["Politics_Importance_Index"],
     "Family Life": ["Family_Importance_Index"],
-    "Leisure Preferences": ["Leisure_time_Importance_Index"]
+    "Leisure Preferences": ["Leisure_time_Importance_Index"],
+    "Work Ethic": ["Work_Importance_Index"],
+    "Friendship Value": ["Friends_Importance_Index"],
+    "Religious Importance": ["Religion_Importance_Index"]
 }
 
 st.markdown("### 🎛️ Rate Category Importance")
