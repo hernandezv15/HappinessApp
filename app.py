@@ -106,7 +106,7 @@ if st.button("🔍 Generate Recommendations"):
     df_norm['PC1'], df_norm['PC2'] = components[:, 0], components[:, 1]
 
     # Clustering
-    kmeans = KMeans(n_clusters=4, random_state=42)
+    kmeans = KMeans(n_clusters=2, random_state=42)
     df_norm['Cluster'] = kmeans.fit_predict(components)
 
     strengths = df_norm[list(importance.keys())].idxmax(axis=1)
